@@ -1,0 +1,11 @@
+*.swp
+*.pyc
+.idea/*
+*ipynb*
+*__pycache__*
+*.log*
+*.err*
+*_log
+*_err
+*.setting*
+*.data*
