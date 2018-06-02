@@ -54,7 +54,7 @@ def fix_route(self, mess, NAT, addr):
                                           'verify_taken': verify_taken, 'NAT': NAT, 'p2p_times': p2p_times}
 
 
-@genel_try_dec
+
 def handle1001(self, mess, addr, soc_object):
     mess = eval(mess)
     if all([x in mess for x in need_list]):
@@ -158,7 +158,7 @@ TcpImformater.handle3004 = handle3004
 
 
 def show_status(imformater):
-    print(imformater,'.processing_nat', imformater.processing_nat, end='\n')
+    print('**********show_status**********  ',imformater,'.processing_nat', imformater.processing_nat, end='\n')
     route_df_show = imformater.route_df.copy()
     route_df_show['dt_'] = now() - route_df_show['update_time']
     print(route_df_show, end='\n')
@@ -174,15 +174,15 @@ threading.Thread(target=udp36.loop_process, args=()).start()
 threading.Thread(target=udp37.loop_process, args=()).start()
 
 
-tcp36 = TcpImformater((local_loop, listen_mainport))
-tcp37 = TcpImformater((local_loop, listen_sport))
+tcp36_listener = TcpImformater((local_loop, listen_mainport))
+tcp37_listener = TcpImformater((local_loop, listen_sport))
 
-threading.Thread(target=tcp36.listen_bytimes, args=(100,)).start()
-threading.Thread(target=tcp37.listen_bytimes, args=(100,)).start()
-threading.Thread(target=tcp36.loop_process, args=()).start()
-threading.Thread(target=tcp37.loop_process, args=()).start()
+threading.Thread(target=tcp36_listener.listen_bytimes, args=(100,)).start()
+threading.Thread(target=tcp37_listener.listen_bytimes, args=(100,)).start()
+threading.Thread(target=tcp36_listener.loop_process, args=()).start()
+threading.Thread(target=tcp37_listener.loop_process, args=()).start()
 
 while 1:
     show_status(udp37)
-    show_status(tcp37)
-    time.sleep(30)
+    show_status(tcp37_listener)
+    time.sleep(60)

@@ -56,7 +56,7 @@ class SoC:
 
     def listen_bytimes(self, times=None, handle_func=None):
         if handle_func is None:
-            handle_func = self.listen_todque
+            handle_func = self.mess_tudeque
         print('listening ...%s; type:%s; %s times' % (self.soc.getsockname(), self.soc.type, times))
         if times is None:
             while True:
@@ -70,16 +70,15 @@ class SoC:
         return int(mess[:4]), mess[4:]
 
     # 是否满足设计的消息协议,能预处理后放入待处理队列
-    def listen_todque(self, mess, addr, soc_object=None):
+    def mess_tudeque(self, mess, addr, soc_object=None):
         soc_object = soc_object if soc_object else self.soc
-        try:
-            mess_ = mess.decode()
-            messcode, messbody = self.mess_protocol(mess_)
-            print('dqueue.append', messcode, messbody, addr, soc_object.getsockname())
-            self.dqueue.append((messcode, messbody, addr, soc_object))
-
-        except Exception as err:
-            print('listen_todque_error', str(err))
+        # try:
+        mess_ = mess.decode()
+        messcode, messbody = self.mess_protocol(mess_)
+        print('dqueue.append', messcode, messbody, addr, soc_object)
+        self.dqueue.append((messcode, messbody, addr, soc_object))
+        # except Exception as err:
+        #     print('mess_tudeque_error', str(err))
 
     def process_dque(self):
         if len(self.dqueue):
@@ -91,7 +90,7 @@ class SoC:
                 print(err, mess_head)
         else:
             gevent.sleep(.5)
-            print('dqueue clean', len(self.dqueue), len(self.dqueue), end='\r')
+            # print('dqueue clean', len(self.dqueue), len(self.dqueue), end='\r')
 
     def loop_process(self, times=None):
         if times is None:
@@ -134,30 +133,39 @@ class UdpSocket(SoC):
 
 class TcpSocket(SoC):
 
-    def __init__(self, l_addr, handle_func=print):
+    def __init__(self, l_addr, ):
         super(TcpSocket, self).__init__()
+        self.l_addr = l_addr
         self.soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.soc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.soc.bind(l_addr)
-        self.soc_listen = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.soc_listen.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.soc_listen.bind(l_addr)
 
     def conn(self, addr):
         self.soc.connect(addr)
 
-    def send_message(self, message, addr, soc_object=None):
-        print('send message(%s) ===>> ' % message, addr)
-        if soc_object and soc_object.getsockname() == addr:
+    def send_message(self, message, addr, soc_object=None):  #
+        print('send message(%s) ===>> ' % message, addr, soc_object)
+        if soc_object and soc_object.getpeername() == addr:
             soc_object.send(message.encode())
+            return soc_object
         else:
-            self.soc.connect(addr)
-            self.soc.send(message.encode())
+            try:
+                self.soc.connect(addr)
+                self.soc.send(message.encode())
+                return self.soc
+            except Exception as err:
+                print('self send_message error', err)
+                self.soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.soc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                self.soc.bind(self.l_addr)
+                self.soc.connect(addr)
+                self.soc.send(message.encode())
+                return self.soc
 
     def recv_handle(self, handle_func, with_spawn=True):
         try:
-            self.soc_listen.listen(1000)  # TCP的最大连接数
-            sock, addr = self.soc_listen.accept()
+            self.soc.listen(1000)  # TCP的最大连接数
+            sock, addr = self.soc.accept()
             print('Welcome', sock, addr, sock.getpeername())
             mess = sock.recv(1024, )
             if with_spawn:

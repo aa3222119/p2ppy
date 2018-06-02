@@ -25,8 +25,9 @@ mess_basedict = {'address': host_loop + str(sys.argv[1])}
 # 知识节点
 imformater_list = [('47.104.190.254', 10036), ('120.77.65.191', 10036), ('120.25.245.164', 10036)]
 
-
+print('host_loop', host_loop)
 laddr = (host_loop, 10036)
+laddr_sender = (host_loop, 10038)
 
 mess_di = mess_basedict.copy()
 mess_di['laddr'] = laddr
@@ -63,20 +64,27 @@ class UdpPeer(UdpSocket):
         print('1006', *args, self)
 
 
-class TcpPeer(UdpSocket):
+class TcpPeer(TcpSocket):
 
-    @genel_try_dec
+    def send_message(self, message, addr, soc_object=None):
+        soc_object = super(TcpPeer,self).send_message(message, addr, soc_object=None)
+        data = soc_object.recv(1024, )
+        soc_object.shutdown(2)
+        soc_object.close()
+        gevent.sleep(.5)
+        print('data', data)
+        self.mess_tudeque(data, addr, )
+
     def handle1002(self, mess, addr, soc_object):
         mess_di['last_process_key'] = (mess_di['address'], routein_no1)
         self.send_message(str(routein_no2) + str(mess_di), addr, soc_object)
 
-    @genel_try_dec
+
     def handle1003(self, mess, addr, soc_object):
         mess_di['last_process_key'] = (mess_di['address'], routein_no2)
         addr = (main_imformater[0], main_imformater[1] + 1)
         self.send_message(str(routein_no3) + str(mess_di), addr, soc_object)
 
-    @genel_try_dec
     def handle1004(self, mess, addr, soc_object):
         mess_di['last_process_key'] = (mess_di['address'], routein_no3)
         mess_di['oaddr'] = (main_imformater[0], main_imformater[1] + 1)
@@ -92,69 +100,14 @@ class TcpPeer(UdpSocket):
 
 udp36 = UdpPeer(laddr, )
 tcp36 = TcpPeer(laddr, )
-
-
-def udp_routein():
-
-    udp36.send_message(str(routein_no1)+str(mess_di), main_imformater)
-    mess, addr = udp36.soc.recvfrom(1024,)
-    mess = mess.decode()
-    if mess[:4] == str(routein_no2):
-        mess_di['last_process_key'] = (mess_di['address'], routein_no1)
-        udp36.send_message(str(routein_no2) + str(mess_di), main_imformater)
-        mess, addr = udp36.soc.recvfrom(1024, )
-        mess = mess.decode()
-        if mess[:4] == str(routein_no3):
-            mess_di['last_process_key'] = (mess_di['address'], routein_no2)
-            udp36.send_message(str(routein_no3) + str(mess_di), (main_imformater[0], main_imformater[1]+1))
-            mess, addr = udp36.soc.recvfrom(1024, )
-            mess = mess.decode()
-            if mess[:4] == str(routein_no4):
-                mess_di['last_process_key'] = (mess_di['address'], routein_no3)
-                mess_di['oaddr'] = (main_imformater[0], main_imformater[1]+1)
-                udp36.send_message(str(routetransfer_no4) + str(mess_di), sub_imformater)
-                print(udp36.soc.recvfrom(1024, ))
-            else:
-                print(mess, addr)
-        else:
-            print(mess, addr)
-    else:
-        print(mess, addr)
-    udp36.for_test_id()
-
-
-def tdp_routein():
-    tcp36.send_message(str(routein_no1)+str(mess_di), main_imformater)
-    mess = tcp36.soc.recv(1024)
-    mess = mess.decode()
-    if mess[:4] == str(routein_no2):
-        mess_di['last_process_key'] = (mess_di['address'], routein_no1)
-        tcp36.send_message(str(routein_no2) + str(mess_di), main_imformater)
-        mess = tcp36.soc.recv(1024)
-        mess = mess.decode()
-        if mess[:4] == str(routein_no3):
-            mess_di['last_process_key'] = (mess_di['address'], routein_no2)
-            tcp36.send_message(str(routein_no3) + str(mess_di), main_imformater)
-            mess = tcp36.soc.recv(1024)
-            mess = mess.decode()
-            if mess[:4] == str(routein_no4):
-                mess_di['last_process_key'] = (mess_di['address'], routein_no3)
-                tcp36.send_message(str(routein_no4) + str(mess_di), main_imformater)
-                mess = tcp36.soc.recv(1024)
-                mess = mess.decode()
-            else:
-                print(mess, )
-        else:
-            print(mess, )
-    else:
-        print(mess, )
-
+tcp36_listener = TcpPeer(laddr, )
 
 if __name__ == "__main__":
     threading.Thread(target=udp36.listen_bytimes, args=(100, )).start()
     threading.Thread(target=udp36.loop_process, args=()).start()
-    threading.Thread(target=tcp36.listen_bytimes, args=(100,)).start()
+    udp36.send_message(str(routein_no1) + str(mess_di), main_imformater)
+    # threading.Thread(target=tcp36_listener.listen_bytimes, args=(100,)).start()
     threading.Thread(target=tcp36.loop_process, args=()).start()
     tcp36.send_message(str(routein_no1) + str(mess_di), main_imformater)
-    # udp36.send_message(str(routein_no1) + str(mess_di), main_imformater)
+
 
