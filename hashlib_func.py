@@ -5,7 +5,11 @@
 # @File    : hashlib_func.py
 # @Software: PyCharm Community Edition
 # ===========================================
+import sys
 import hashlib
+# 最好还是用python3.6
+if sys.version_info < (3, 6):
+    import sha3
 
 
 def sha2str(str_, hash_func=hashlib.sha3_256):

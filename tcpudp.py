@@ -7,15 +7,23 @@
 # ===========================================
 
 # import asyncio
+import gevent.monkey
+gevent.monkey.patch_all()
 from collections import deque
 from functools import wraps
 import gevent
-import socket
-from gevent import socket, monkey, server
-monkey.patch_all()
+import socket, sys
+import pandas as pd
+pd.set_option('display.width', 5000)
+pd.option_context('display.precision', 3)
+import time
+now = lambda: time.time()
 
 
+# 内部函数使用参数的装饰器
 def genel_try_dec(handel_func):
+    """handel_func通用异常处理
+    """
     @wraps(handel_func)
     def do_func(*args, **kwargs):
         try:
@@ -25,6 +33,19 @@ def genel_try_dec(handel_func):
             print('genel try Exception', __name__, err.args)
         return res
     return do_func
+
+
+# 内部函数使用参数，装饰器也使用参数
+def polling_dec(dt=60):
+    """通用轮询
+    """
+    def wrapper(func):
+        def _wrapper(*args, **kargs):
+            while 1:
+                func(*args, **kargs)
+                time.sleep(dt)
+        return _wrapper
+    return wrapper
 
 
 # Socket Communicate base class
@@ -38,12 +59,9 @@ class SoC:
     def raise_error(err_mess):
         raise AttributeError(err_mess)
 
-    def conn(self, *args):
-        print(args)
-
-    def close(self):
+    def close(self, tp=2):
         # 0 SHUT_RD 关闭接收消息通道，1 SHUT_WR 关闭发送消息通道，2 SHUT_RDWR 两个通道都关闭。
-        self.soc.shutdown(1)
+        self.soc.shutdown(tp)
         self.soc.close()
 
     def send_message(self, *args):
@@ -71,23 +89,23 @@ class SoC:
 
     # 是否满足设计的消息协议,能预处理后放入待处理队列
     def mess_tudeque(self, mess, addr, soc_object=None):
-        soc_object = soc_object if soc_object else self.soc
-        # try:
-        mess_ = mess.decode()
-        messcode, messbody = self.mess_protocol(mess_)
-        print('dqueue.append', messcode, messbody, addr, soc_object)
-        self.dqueue.append((messcode, messbody, addr, soc_object))
-        # except Exception as err:
-        #     print('mess_tudeque_error', str(err))
+        # soc_object = soc_object if soc_object else self.soc  # 最好去掉这种默认
+        try:
+            mess_ = mess.decode()
+            messcode, messbody = self.mess_protocol(mess_)
+            self.dqueue.append((messcode, messbody, addr, soc_object))
+        except Exception as err:
+            print('mess_tudeque_error', str(err))
 
     def process_dque(self):
         if len(self.dqueue):
             mess_head, mess_body, addr, soc_object = self.dqueue.popleft()
+            print('Processing :: self.handle', mess_head, mess_body, addr, soc_object)
             try:
-                print(mess_body, addr)
                 eval('self.handle%s' % mess_head)(mess_body, addr, soc_object)
             except Exception as err:
-                print(err, mess_head)
+                print('processing eval error !!', err, err.args, mess_head)
+            # eval('self.handle%s' % mess_head)(mess_body, addr, soc_object)
         else:
             gevent.sleep(.5)
             # print('dqueue clean', len(self.dqueue), len(self.dqueue), end='\r')
@@ -106,61 +124,64 @@ class SoC:
 
 class UdpSocket(SoC):
 
-    def __init__(self, l_addr, timeout=None):
+    def __init__(self, l_addr=None, timeout=None):
         super(UdpSocket, self).__init__()
         self.soc = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.soc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.soc.bind(l_addr)
+        if l_addr:
+            self.soc.bind(l_addr)
         if timeout:
             self.soc.settimeout(timeout)
         # self.handle_func = self.listen_todeque  # set_default_handlefunc
 
     def send_message(self, message, addr, soc_object=None):
-        print('send message(%s) ===>> ' % message, addr)
+        # print('send UDP message( %s ) ===>> ' % message, addr)
         soc_object = soc_object if soc_object else self.soc
         soc_object.sendto(message.encode(), addr)
 
     def recv_handle(self, handle_func, with_spawn=True):
         try:
-            mess, addr = self.soc.recvfrom(1024, )
+            mess, addr = self.soc.recvfrom(65507, )
             if with_spawn:
-                gevent.spawn(handle_func, mess, addr, )
+                return gevent.spawn(handle_func, mess, addr, )
             else:
-                handle_func(mess, addr, )
+                return handle_func(mess, addr, )
         except Exception as err:
             print(err)
 
 
 class TcpSocket(SoC):
 
-    def __init__(self, l_addr, ):
+    def __init__(self, l_addr=None, ):
         super(TcpSocket, self).__init__()
-        self.l_addr = l_addr
         self.soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.soc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.soc.bind(l_addr)
-
-    def conn(self, addr):
-        self.soc.connect(addr)
+        # self.soc.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        self.binded_speaker = None
+        if l_addr:
+            self.soc.bind(l_addr)
 
     def send_message(self, message, addr, soc_object=None):  #
-        print('send message(%s) ===>> ' % message, addr, soc_object)
-        if soc_object and soc_object.getpeername() == addr:
-            soc_object.send(message.encode())
-            return soc_object
+        print('send TCP message( %s ) ===>> ' % message, addr, soc_object, )
+        if soc_object:
+            if soc_object.getpeername() == addr:
+                soc_object.send(message.encode())
+                return soc_object
+            else:
+                print('soc_object is to ', soc_object.getpeername(), 'but addr is', addr)
         else:
-            try:
-                self.soc.connect(addr)
-                self.soc.send(message.encode())
-                return self.soc
-            except Exception as err:
-                print('self send_message error', err)
-                self.soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                self.soc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                self.soc.bind(self.l_addr)
-                self.soc.connect(addr)
-                self.soc.send(message.encode())
-                return self.soc
+            # try:
+            self.soc.connect(addr)
+            self.soc.send(message.encode())
+            return self.soc
+            # except Exception as err:
+            #     print('self send_message error', err)
+            #     self.soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            #     self.soc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            #     self.soc.bind(self.l_addr)
+            #     self.soc.connect(addr)
+            #     self.soc.send(message.encode())
+            #     return self.soc
 
     def recv_handle(self, handle_func, with_spawn=True):
         try:
@@ -174,6 +195,14 @@ class TcpSocket(SoC):
                 handle_func(mess, addr, sock)
         except Exception as err:
             print(err)
+
+    def re_bind(self, l_addr=None):
+        l_addr = l_addr if l_addr else self.soc.getsockname()
+        print(id(self.soc), self.soc)
+        self.close()
+        print(id(self.soc), self.soc)
+        self.__init__(l_addr)
+        print(id(self.soc), self.soc)
 
 
 def getip_(is_local=True):

@@ -30,3 +30,29 @@ routein_no4 = 1004
 routetransfer_no4 = 3004  # route_in 第4阶段的转发消息, 由peer发送给sub_imformater , sub_imformater处理该消息转发
 routein_finish = 1005   #
 routein_failed = 1006
+routein_clue = 1009  # 由peer发给imforma 使得imforma形成route clue   一般由peer的子线程完成，两次且间隔一定时长
+
+
+# 101X p2p相关编码 只用UDP处理
+suit_peers = 1010  # 可以连接的peers 由peer向imforma请求 , imforma回复同样序号的确认消息，附带已待连接的peer
+notify_conn = 1011  # peer连接通知  由imforma通知peer具体的连接准备,  peer回复同样的序号表示准备ok
+easyside_hole = 1012  # napttype靠前的预留穿洞  由peer通知另一个peer(一般不会收到)   直到收到success_hole_flag表示成功
+success_hole_flag = 1013  # peer主动方和被动方(做预留时)发送给另一peer 
+success_hole_flag_rev = 1014  # 收到 success_hole_flag 后返回success_hole_flag_rev 确认连接
+code_err_101X = 1019
+success_conn = 1020  # 由主动连接的peer发向被动的peer 发送表示,,,收到表示连接成功,  返回同样的序号形成相互确认, 表示做好继续互通消息的准备
+
+# ------------------------------------ 6开头表示所有peer向imforma的普通内容请求   -----------------------------------------------
+askim_route = 6001         # 查询路由表信息，需提供必要参数，UDP时peer一般是直接阻塞获取相关信息
+
+# -------------------------------------- 8开头表示所有peer之间的普通内容请求   --------------------------------------------------
+askpeer_wcchain = 8001     # 请求链相关信息，由参数URL决定请求内容
+
+# ----------------------------------- 9开头表示peer对8XXX的回复，或广播的信息   -------------------------------------------------
+respeer_wcchain = 9001     # 对9001的相应回复
+broadcastpeer = 9002       # 向其他节点广播信息，包括由参数URL决定的内容和内容的值content
+
+# ---------------------------------------------- 4开头的code统统代表错误   ----------------------------------------------------
+no_route = 4001  # 没注册的路由 由imforma通知peer
+expired_route = 4005  # 过期的路由 由imforma通知peer
+no_peers = 4010  # 没有可用的peers 由imforma通知peer
