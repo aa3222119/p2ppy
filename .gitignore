@@ -9,3 +9,4 @@
 *_err
 *.setting*
 *.data*
+_*.py
