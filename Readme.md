@@ -10,7 +10,7 @@
 # 1.组件
 
 * [self](http://gitlab.weicheche.cn/xuechen.han/p2ppy).
-* [WcChain_py <main>] (http://gitlab.weicheche.cn/xuechen.han/WcChain_py/tree/master).
+* [WcChain_py  --main] (http://gitlab.weicheche.cn/xuechen.han/WcChain_py/tree/master).
 
 # 2.参考文档
 
