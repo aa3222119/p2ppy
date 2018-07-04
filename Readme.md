@@ -10,7 +10,7 @@
 # 1.组件
 
 * [self](http://gitlab.weicheche.cn/xuechen.han/p2ppy).
-* [WcChain_py  -=> main] (http://gitlab.weicheche.cn/xuechen.han/WcChain_py/tree/master).
+* [WcChain_py --> main] (http://gitlab.weicheche.cn/xuechen.han/WcChain_py/tree/master)
 
 
 # 2.特性和进度相关说明
@@ -25,10 +25,12 @@
   --已解决，事实证明统一走生产消费线能解决不少问题
 * 3.传输分片的支持,需要包含完整度检测。
 * 4.新加入节点的全量链下载,长链被同步的问题,依赖于3。
-* 5.imforma间的对等机制。   暂缓实现：新入节点总得需要一个目标
 
 ## 2.3 现阶段忽略的特性
-* 1.还未实现基于tcp的p2p通信
+* 1.还未实现基于tcp的p2p通信。
+* 2.imformater的对等化，备份化，非常用路由信息文件化，以及服务化。
+* 3.基于加密的通信。
+* 4.非法消息的黑名单机制。
 
 
 # 3.改动日记
